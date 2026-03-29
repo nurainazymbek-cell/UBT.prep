@@ -281,6 +281,21 @@ input,textarea,select{outline:none;font-family:'Nunito',sans-serif}
 .notif-dot{position:relative}
 .notif-dot::after{content:'';position:absolute;top:0;right:0;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid var(--white)}
 
+/* STORE & AGENTIC COMMERCE */
+.store-grid { display:grid; grid-template-columns: 350px 1fr; gap:24px; height: calc(100vh - 130px); }
+.agent-chat { background:var(--white); border-radius:var(--radius-lg); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; border:2px solid var(--gold); position:relative; }
+.agent-header { background:linear-gradient(135deg,var(--navy),var(--teal)); color:var(--white); padding:16px 20px; font-weight:700; display:flex; align-items:center; gap:12px; }
+.agent-avatar { width:36px; height:36px; background:var(--gold); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.products-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:20px; overflow-y:auto; padding-right:8px; align-content:start; }
+.product-card { background:var(--white); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border:2px solid transparent; transition:all .2s; display:flex; flex-direction:column; position:relative; overflow:hidden; }
+.product-card::before { content:''; position:absolute; top:0; left:0; width:100%; height:4px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); }
+.product-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-lg); border-color:var(--gold); }
+.product-icon { font-size:40px; margin-bottom:12px; }
+.product-title { font-size:16px; font-weight:700; color:var(--navy); line-height:1.3; margin-bottom:8px; }
+.product-price { font-size:22px; font-weight:700; font-family:'Cormorant Garamond',serif; color:var(--teal); margin-bottom:12px; }
+.buy-btn { background:linear-gradient(135deg,var(--gold),var(--gold-light)); color:var(--navy); font-weight:700; border:none; padding:12px; border-radius:var(--radius); cursor:pointer; width:100%; transition:all .2s; margin-top:auto; font-size:14px; }
+.buy-btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(212,168,67,0.4); }
+
 /* PROGRESS TIMELINE */
 .progress-list{display:flex;flex-direction:column;gap:12px}
 .progress-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:var(--gray-50)}
@@ -305,6 +320,7 @@ input,textarea,select{outline:none;font-family:'Nunito',sans-serif}
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .sections-grid{grid-template-columns:1fr}
   .chat-layout{grid-template-columns:1fr}
+  .store-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -766,6 +782,7 @@ function App() {
           {page === 'dashboard' && <DashboardPage user={currentUser} subjects={allUserSubjects} setPage={setPage} setSubject={setSelectedSubject}/>}
           {page === 'subjects' && <SubjectsListPage subjects={allUserSubjects} setPage={setPage} setSubject={setSelectedSubject}/>}
           {page === 'subject-detail' && selectedSubject && <SubjectDetailPage subject={selectedSubject} user={currentUser}/>}
+          {page === 'store' && <StorePage user={currentUser} setPage={setPage}/>}
           {page === 'roadmap' && <RoadmapPage subjects={allUserSubjects}/>}
           {page === 'chat' && <ChatPage user={currentUser}/>}
           {page === 'schedule' && <SchedulePage user={currentUser}/>}
@@ -947,6 +964,7 @@ function Sidebar({ page, setPage, user, onLogout, chatBadge, role }) {
   const nav = [
     { id:'dashboard', icon:'🏠', label:'Басты бет' },
     { id:'subjects', icon:'📚', label:'Пәндер' },
+    { id:'store', icon:'🛒', label:'Дүкен ✨', badge: 'Жаңа' },
     { id:'roadmap', icon:'🗺️', label:'Оқу жоспары' },
     { id:'chat', icon:'💬', label:'Чат', badge: chatBadge },
     { id:'profile', icon:'👤', label:'Профиль' },
@@ -992,7 +1010,7 @@ function Sidebar({ page, setPage, user, onLogout, chatBadge, role }) {
 // TOP BAR
 // ============================================================
 function TopBar({ page, user, setPage, onSubjectChange }) {
-  const titles = { dashboard:'Басты бет', subjects:'Пәндер', 'subject-detail':'Пән мазмұны', roadmap:'Оқу жоспары', chat:'Чат', admin:'Админ панелі', profile:'Профиль', schedule:'Сабақ кестесі' };
+  const titles = { dashboard:'Басты бет', subjects:'Пәндер', 'subject-detail':'Пән мазмұны', store:'Agentic Commerce Дүкені', roadmap:'Оқу жоспары', chat:'Чат', admin:'Админ панелі', profile:'Профиль', schedule:'Сабақ кестесі' };
   return (
     <div className="top-bar">
       <h2>{titles[page] || 'ҰБТ Prep'}</h2>
@@ -1377,6 +1395,111 @@ function RoadmapPage({ subjects }) {
           ))}
         </div>
       </div>
+  );
+}
+
+// ============================================================
+// AGENTIC COMMERCE STORE
+// ============================================================
+function StorePage({ user, setPage }) {
+  const [messages, setMessages] = useState([
+    { role:'agent', text:`Сәлем, ${user?.name?.split(' ')[0] || 'оқушы'}! Мен — AI кеңесшіңізбін. 📚 Қалай көмектесе аламын? Оң жақтан ұсынылған премиум курстарды көре аласыз.` }
+  ]);
+  const [input, setInput] = useState('');
+  const [purchased, setPurchased] = useState({});
+
+  useEffect(() => {
+    // Populate purchased items from user profile
+    const dbUsers = DB.getUsers();
+    const me = dbUsers.find(u => u.id === user.id);
+    if(me && me.purchases) {
+      const pMap = {};
+      me.purchases.forEach(p => pMap[p.id] = true);
+      setPurchased(pMap);
+    }
+  }, [user.id]);
+
+  const DB_PROD = [
+    { id:'p1', icon:'🎓', title:'IELTS Premium Mock Tests', price:'5 000 ₸', desc:'10 толық IELTS тесті, AI тексеруімен эссе және спикинг.' },
+    { id:'p2', icon:'👨‍🏫', title:'Жеке тәлімгермен сабақ', price:'15 000 ₸', desc:'Тәжірибелі ҰБТ мұғалімімен 1 айлық онлайн сабақ.' },
+    { id:'p3', icon:'🏰', title:'VIP Қазақстан тарихы', price:'8 000 ₸', desc:'Конспектілер, жабық видеолар және авторлық тесттер.' },
+    { id:'p4', icon:'🚀', title:'Интенсив: Математика 40+', price:'12 000 ₸', desc:'Күрделі есептерді шешудің оңай жолдары.' },
+    { id:'p5', icon:'🧬', title:'Биология Практикум', price:'6 000 ₸', desc:'Жасуша биологиясы мен генетика есептерінің толық жинағы.' }
+  ];
+
+  const handleSend = () => {
+    if(!input.trim()) return;
+    const usrMsg = input.trim();
+    setMessages(prev => [...prev, { role:'user', text: usrMsg }]);
+    setInput('');
+    
+    // Simulate AI Agent Logic
+    setTimeout(() => {
+      let reply = '';
+      if(usrMsg.toLowerCase().includes('матем') || usrMsg.toLowerCase().includes('math')) {
+        reply = 'Математикадан қиналасыз ба? Біздің "Интенсив: Математика 40+" курсымыз сізге дәл келеді!';
+      } else if(usrMsg.toLowerCase().includes('ielts') || usrMsg.toLowerCase().includes('ағылшын')) {
+        reply = 'IELTS-ке дайындықты күшейту үшін "IELTS Premium Mock Tests" алуды ұсынамын. AI сіздің эсселеріңізді тексеріп береді!';
+      } else if(usrMsg.toLowerCase().includes('тарих')) {
+        reply = 'Қазақстан тарихынан жаттау қиын ба? VIP курсты алып көріңіз, барлығы жүйеленген!';
+      } else {
+        reply = 'Жақсы! Сізге жеке тәлімгермен жұмыс істеу немесе арнайы VIP курстарды алу ұсынылады. Оң жақтағы өнімдерді қарап шығыңыз!';
+      }
+      setMessages(prev => [...prev, { role:'agent', text: reply }]);
+    }, 1000);
+  };
+
+  const buy = (p) => {
+    if(purchased[p.id]) return alert('Бұл өнімді сатып алғансыз!');
+    if(window.confirm(`${p.title} сатып алуды растайсыз ба?\nБағасы: ${p.price}`)) {
+      setPurchased(prev => ({...prev, [p.id]:true}));
+      setMessages(prev => [...prev, { role:'agent', text: `Құттықтаймыз! Сіз "${p.title}" өнімін сәтті сатып алдыңыз. 🎉 Енді ол профиліңізде қолжетімді.` }]);
+      
+      const dbUsers = DB.getUsers();
+      const meIdx = dbUsers.findIndex(u => u.id === user.id);
+      if(meIdx !== -1) {
+        if(!dbUsers[meIdx].purchases) dbUsers[meIdx].purchases = [];
+        dbUsers[meIdx].purchases.push(p);
+        DB.saveUsers(dbUsers);
+      }
+    }
+  };
+
+  return (
+    <div className="store-grid">
+      <div className="agent-chat">
+        <div className="agent-header">
+          <div className="agent-avatar">🤖</div>
+          <div>AI Сатушы-Кеңесші<div style={{fontSize:11,opacity:0.8,fontWeight:500}}>Онлайн</div></div>
+        </div>
+        <div className="messages-area" style={{background:'#F8FAFC'}}>
+          {messages.map((m,i)=>(
+            <div key={i} className={`msg-bubble ${m.role==='agent'?'received':'sent'}`} style={m.role==='agent'?{background:'#FFF',border:'1px solid var(--gray-200)',color:'var(--navy)'}:{}}>
+              {m.text}
+            </div>
+          ))}
+        </div>
+        <div className="chat-input-area">
+          <input className="chat-input" placeholder="Кеңес сұрау (мысалы: 'Математикадан курс бар ма?')" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSend()}/>
+          <button className="send-btn" onClick={handleSend}>➤</button>
+        </div>
+      </div>
+      <div>
+        <h3 style={{fontFamily:'Cormorant Garamond',fontSize:26,margin:'0 0 20px 0',color:'var(--navy)'}}>Премиум Өнімдер</h3>
+        <div className="products-grid">
+          {DB_PROD.map(p=>(
+            <div key={p.id} className="product-card">
+              <div className="product-icon">{p.icon}</div>
+              <div className="product-title">{p.title}</div>
+              <div style={{fontSize:13,color:'var(--gray-600)',marginBottom:16,flex:1}}>{p.desc}</div>
+              <div className="product-price">{p.price}</div>
+              <button className="buy-btn" onClick={()=>buy(p)} style={purchased[p.id]?{background:'var(--success)',color:'#fff'}:{}}>
+                {purchased[p.id] ? '✓ Сатып алынды' : 'Сатып алу'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1630,32 +1753,51 @@ function AdminPage() {
       </div>
       <div className="card">
         <div className="card-header">
-          <h3>👥 Пайдаланушылар</h3>
+          <h3>👥 Пайдаланушылар және Сатылымдар</h3>
           <div style={{display:'flex',gap:8}}>
-            {['users','teachers','students'].map(t=>(
+            {['users','teachers','students','sales'].map(t=>(
               <button key={t} onClick={()=>setTab(t)} style={{padding:'6px 14px',borderRadius:20,border:'2px solid',borderColor:tab===t?'var(--teal)':'var(--gray-200)',background:tab===t?'var(--teal)':'transparent',color:tab===t?'#fff':'var(--gray-600)',fontSize:13,fontWeight:600,cursor:'pointer'}}>
-                {t==='users'?'Барлығы':t==='teachers'?'Мұғалімдер':'Оқушылар'}
+                {t==='users'?'Барлығы':t==='teachers'?'Мұғалімдер':t==='sales'?'Сатылымдар':'Оқушылар'}
               </button>
             ))}
           </div>
         </div>
-        <table className="users-table">
-          <thead><tr><th>Аты-жөні</th><th>Email</th><th>Рөл</th><th>Пәндер</th><th>Статус</th></tr></thead>
-          <tbody>
-            {(tab==='users'?users:tab==='teachers'?teachers:students).map(u=>(
-              <tr key={u.id}>
-                <td style={{fontWeight:700,display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:32,height:32,borderRadius:'50%',background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:700}}>{u.avatar||u.name?.[0]||'?'}</div>
-                  {u.name}
-                </td>
-                <td style={{color:'var(--gray-600)'}}>{u.email}</td>
-                <td><span className={`role-badge ${u.role}`}>{u.role==='student'?'Оқушы':u.role==='teacher'?'Мұғалім':'Админ'}</span></td>
-                <td style={{color:'var(--gray-600)',fontSize:13}}>{u.subjects?.length||0} пән</td>
-                <td><span style={{color:'var(--success)',fontSize:13,fontWeight:700}}>● Белсенді</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {tab === 'sales' ? (
+          <table className="users-table">
+            <thead><tr><th>Оқушы</th><th>Өнім</th><th>Бағасы</th><th>Статус</th></tr></thead>
+            <tbody>
+              {users.flatMap(u => (u.purchases||[]).map((p,i) => (
+                <tr key={`${u.id}-${i}`}>
+                  <td style={{fontWeight:700}}>{u.name}</td>
+                  <td>{p.icon} {p.title}</td>
+                  <td style={{color:'var(--teal)',fontWeight:700}}>{p.price}</td>
+                  <td><span style={{color:'var(--success)',fontSize:13,fontWeight:700}}>✓ Төленді</span></td>
+                </tr>
+              )))}
+              {users.flatMap(u => Object.keys(u.purchases||{}).length > 0 ? Object.values(u.purchases||{}) : []).length === 0 && (
+                <tr><td colSpan="4" style={{textAlign:'center',padding:'20px',color:'var(--gray-400)'}}>Әзірге сатылым жоқ</td></tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table className="users-table">
+            <thead><tr><th>Аты-жөні</th><th>Email</th><th>Рөл</th><th>Пәндер</th><th>Статус</th></tr></thead>
+            <tbody>
+              {(tab==='users'?users:tab==='teachers'?teachers:students).map(u=>(
+                <tr key={u.id}>
+                  <td style={{fontWeight:700,display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{width:32,height:32,borderRadius:'50%',background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:700}}>{u.avatar||u.name?.[0]||'?'}</div>
+                    {u.name}
+                  </td>
+                  <td style={{color:'var(--gray-600)'}}>{u.email}</td>
+                  <td><span className={`role-badge ${u.role}`}>{u.role==='student'?'Оқушы':u.role==='teacher'?'Мұғалім':'Админ'}</span></td>
+                  <td style={{color:'var(--gray-600)',fontSize:13}}>{u.subjects?.length||0} пән</td>
+                  <td><span style={{color:'var(--success)',fontSize:13,fontWeight:700}}>● Белсенді</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
